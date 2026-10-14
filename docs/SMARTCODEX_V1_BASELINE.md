@@ -84,3 +84,42 @@ Roadmap meminta beberapa tugas read-only dengan model, exit code, waktu, token (
 | Baseline runtime read-only dengan model/exit/time/token/verifikasi | Belum dilakukan |
 | Login dan model aktual yang dapat dijalankan tercatat | Belum diverifikasi |
 | **Tahap 00 keseluruhan** | **Belum lulus penuh; baseline runtime masih perlu dilengkapi** |
+
+## Addendum — Verifikasi Runtime 14 Oktober 2026
+
+Baseline runtime pertama berhasil dijalankan.
+
+| Metrik | Hasil |
+| --- | --- |
+| Login | Logged in using ChatGPT |
+| Codex CLI | 0.162.1 |
+| Router | rules, tanpa classifier AI |
+| Model aktual | gpt-6-luna |
+| Reasoning | low |
+| Mode | exec |
+| Sandbox | read-only |
+| Exit code | 0 |
+| Durasi | 12.47 detik |
+| Token dilaporkan Codex | 14,356 |
+| Verifikasi output | PASS — judul pertama README.md sesuai |
+| Log lokal | .smartcodex/usage/phase00-runtime.txt |
+
+Perintah dijalankan melalui launcher v1 dengan --force-tier luna-low.
+
+Ditemukan dua peringatan PowerShell:
+1. NativeCommandError saat stderr dari proses Codex diteruskan oleh launcher.
+2. DotSourceNotSupported saat proses PowerShell dalam sandbox memuat profil pengguna.
+
+Keduanya tidak menghentikan eksekusi. Exit code tetap 0.
+
+Backup v1 telah disalin ke .smartcodex/backups/v1.
+Integritas backup terverifikasi (PASS 4/4). SHA-256 README.md, smartcodex.ps1, smartcodex.py, dan test_smartcodex.py identik antara source dan backup.
+
+Catatan efisiensi: satu tugas membaca baris pertama README
+menggunakan 14,356 token yang dilaporkan Codex. Ini merupakan
+data baseline, bukan bukti penyebab penggunaan token yang tinggi.
+
+Status Tahap 00: verifikasi runtime pertama lulus.
+Cakupan beberapa tugas read-only yang diminta roadmap
+masih perlu dinilai bersama pengujian historis sebelum
+gate Tahap 00 dinyatakan lulus penuh.
