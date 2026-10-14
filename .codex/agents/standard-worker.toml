@@ -1,7 +1,7 @@
 name = "standard_worker"
 description = "Use for bounded everyday implementation such as controller validation, ordinary endpoints, forms, and routine tests when delegating an independent subtask is useful."
-model = "gpt-6.1-sol"
-model_reasoning_effort = "low"
+model = "gpt-6-luna"
+model_reasoning_effort = "medium"
 
 developer_instructions = """
 Implement the assigned bounded change according to existing repository patterns.

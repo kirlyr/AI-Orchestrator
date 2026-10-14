@@ -1,6 +1,6 @@
 # Fallback if you start `codex` directly.
 # A smart launcher may override the main model per new task using -m and -c.
-model = "gpt-6.1-sol"
+model = "gpt-6-luna"
 model_reasoning_effort = "low"
 
 [agents]
