@@ -1,0 +1,15 @@
+# SmartCodex runtime state
+.smartcodex/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Local secrets
+.env
+.env.*
+!.env.example
+# SmartCodex runtime
+/.smartcodex/

@@ -1,0 +1,74 @@
+# SmartCodex v2 - profil per kategori logis.
+# TEMPLATE RENCANA. BELUM DIBACA OLEH SMARTCODEX V1.
+# Tahap 01-03: implementasikan parser untuk config/model_profiles.toml.
+# ChatGPT Plus: menghemat penggunaan jatah Codex, bukan tagihan API per token.
+
+default_profile = "testing"
+
+[profiles.testing]
+max_subtasks = 5
+max_parallel_writers = 1
+max_auto_escalations = 0
+require_approval_for_fallback = true
+premium_enabled = false
+
+[profiles.testing.classifier]
+model = "gpt-6-luna"
+reasoning_effort = "low"
+only_if_ambiguous = true
+
+[profiles.testing.planner]
+model = "gpt-6-luna"
+reasoning_effort = "medium"
+only_if_compound = true
+
+[profiles.testing.tiers.simple]
+model = "gpt-6-luna"
+reasoning_effort = "low"
+
+[profiles.testing.tiers.standard]
+model = "gpt-6-luna"
+reasoning_effort = "medium"
+
+[profiles.testing.tiers.deep]
+model = "gpt-6-luna"
+reasoning_effort = "high"
+
+[profiles.testing.tiers.fallback]
+model = "gpt-6.1-sol"
+reasoning_effort = "low"
+requires_approval = true
+
+[profiles.production]
+max_subtasks = 8
+max_parallel_writers = 1
+max_auto_escalations = 1
+require_approval_for_fallback = true
+premium_enabled = false
+
+[profiles.production.classifier]
+model = "gpt-6-luna"
+reasoning_effort = "low"
+only_if_ambiguous = true
+
+[profiles.production.planner]
+model = "gpt-6-luna"
+reasoning_effort = "medium"
+only_if_compound = true
+
+[profiles.production.tiers.simple]
+model = "gpt-6-luna"
+reasoning_effort = "low"
+
+[profiles.production.tiers.standard]
+model = "gpt-6.1-sol"
+reasoning_effort = "low"
+
+[profiles.production.tiers.deep]
+model = "gpt-6.1-sol"
+reasoning_effort = "medium"
+
+[profiles.production.tiers.fallback]
+model = "gpt-6.1-sol"
+reasoning_effort = "high"
+requires_approval = true
