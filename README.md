@@ -1,17 +1,49 @@
-# Codex Smart Routing starter (project-level)
+# SmartCodex
 
-Place `AGENTS.md` and `.codex/` in the root of your repo. These define project instructions and three custom subagents. Codex's main model defaults to GPT-6.1 Sol Low for normal direct invocations.
+SmartCodex v1 routes a task to a Codex model using local rules or an optional AI classifier, then starts Codex CLI. It requires Python 3.10+ and Codex CLI available on `PATH`. The Python package has no runtime dependencies and does not require an OpenAI API key.
 
-Usage, from the project directory:
+## Install from this repository
 
-- `codex`: main = Sol Low (project config fallback)
-- `codex -m gpt-6-luna -c model_reasoning_effort=low "Ubah label tombol login"`: main = Luna Low
-- `codex -m gpt-6.1-sol -c model_reasoning_effort=medium "Cari dan perbaiki bug integrasi login"`: main = Sol Medium
+From the repository root, install the package into the active Python environment:
 
-`AGENTS.md` can encourage delegation to agents with their own models, but cannot automatically change the model of the main interactive chat per follow-up message.
+```powershell
+py -m pip install .
+smartcodex --help
+```
 
-For classification *before* each new task, use a launcher command such as `smartcodex` to pick `-m` and `-c` values, then invoke Codex. The earlier Smart Codex Launcher prototype routes only the first prompt of an interactive session and is not yet fully project-aware.
+For development, create and activate a virtual environment first:
 
-If you want per-turn model switching *while preserving the same conversation*, a custom frontend/controller using a supported Codex API (e.g. app server/SDK) is a distinct advanced integration. Validate model availability on your ChatGPT account.
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+py -m pip install .
+```
 
-To keep config local rather than commit it, put `/AGENTS.md` and `/.codex/` into `.git/info/exclude` (recommended for personal-only files) or your repo's `.gitignore`.
+## PowerShell usage
+
+Quote a prompt containing spaces. `--router rules` uses only local routing; `smart` is the default and invokes the AI classifier only when local rules are uncertain. `--router ai` always requests AI classification unless `--dry-run` is set.
+
+```powershell
+smartcodex "Ubah teks tombol Simpan menjadi Kirim"
+smartcodex --router rules "Tambahkan validasi form"
+smartcodex --router ai "Audit integrasi ini"
+smartcodex --mode exec "Periksa konfigurasi proyek"
+```
+
+Preview a local routing decision without starting Codex or an AI classifier:
+
+```powershell
+smartcodex --dry-run "Ubah warna tombol login"
+```
+
+In `exec` and `loop` mode, Codex uses the `read-only` sandbox by default. Add `--write` to allow workspace edits. Chat mode retains the v1 `workspace-write` sandbox and `on-request` approval behavior. Legacy `--force-tier` values retain their original model mapping, including `sol-low` to Sol Low. Astra routing requires the explicit `--allow-astra` option.
+
+## v1 limitations
+
+- Routing sees only the prompt; it does not inspect the target repository.
+- The interactive chat routes only its initial prompt. Follow-up messages remain in that Codex session and are not routed again.
+- Loop mode starts a separate `codex exec` session for each prompt and does not preserve chat history.
+- Model availability depends on the Codex account and CLI. AI routing uses Luna Low as the classifier and falls back to local rules on failure.
+- This package does not include project analysis, planning, task scheduling, session management, or per-subtask routing.
+
+The project testing configuration uses **GPT-6 Luna Low** as the default model. Manually selected legacy tiers continue to map to their v1 models.
