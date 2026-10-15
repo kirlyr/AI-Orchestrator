@@ -13,3 +13,8 @@ __pycache__/
 !.env.example
 # SmartCodex runtime
 /.smartcodex/
+
+# Python packaging artifacts
+/build/
+/dist/
+*.egg-info/
