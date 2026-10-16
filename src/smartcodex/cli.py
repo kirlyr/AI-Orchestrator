@@ -216,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         prompt = args.file.read_text(encoding="utf-8") if args.file else " ".join(args.prompt)
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         print(f"Tidak bisa membaca file: {exc}", file=sys.stderr)
         return 2
     prompt = prompt.strip()
