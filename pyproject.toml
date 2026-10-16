@@ -11,6 +11,9 @@ requires-python = ">=3.10"
 license = { text = "Proprietary" }
 dependencies = []
 
+[project.optional-dependencies]
+test = ['tomli>=2.0.1; python_version < "3.11"']
+
 [project.scripts]
 smartcodex = "smartcodex.cli:main"
 
