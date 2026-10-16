@@ -24,6 +24,26 @@ class CliGuardrailTests(unittest.TestCase):
         self.assertEqual(result, 2)
         self.assertIn("--write", stderr.getvalue())
 
+    
+    def test_file_and_positional_prompt_are_mutually_exclusive(self):
+        stderr = io.StringIO()
+
+        with patch.object(
+            cli.shutil,
+            "which",
+            side_effect=AssertionError("Codex must not be queried"),
+        ):
+            with redirect_stderr(stderr):
+                result = cli.main([
+                    "hello",
+                    "--file",
+                    "prompt.txt",
+                    "--dry-run",
+                ])
+
+        self.assertEqual(result, 2)
+        self.assertIn("ATAU --file", stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()
