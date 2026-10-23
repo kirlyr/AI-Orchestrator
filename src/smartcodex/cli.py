@@ -14,6 +14,8 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from .intent_gate import decide as decide_intent, local_decision, load_profile, IntentDecision
+from .repo_analyzer import RepoAnalyzer
 
 
 TIERS = {
@@ -165,10 +167,15 @@ def cli_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--write", action="store_true", help="Mode exec/loop saja: izinkan perubahan file dalam workspace")
     parser.add_argument("--dry-run", action="store_true",
                         help="Tampilkan rute lokal tanpa memanggil Codex, meskipun router=smart/ai")
+    parser.add_argument("--v2", action="store_true", help="Gunakan intent gate v2 (opt-in)")
+    parser.add_argument("--preview-intent", action="store_true", help="Preview intent v2 tanpa menjalankan Codex")
+    parser.add_argument("--profile", default="testing", help="Profil v2 dari configs/model-profiles.toml")
     return parser.parse_args(argv)
 
 
 def dispatch(prompt: str, args: argparse.Namespace, codex: str | None) -> int:
+    if args.v2 or args.preview_intent:
+        return dispatch_v2(prompt, args, codex)
     if args.force_tier:
         decision = capped(Decision(args.force_tier, "Dipilih manual."), args.allow_astra)
     elif args.dry_run:
@@ -204,6 +211,44 @@ def dispatch(prompt: str, args: argparse.Namespace, codex: str | None) -> int:
         return 1
     except KeyboardInterrupt:
         return 130
+
+
+def dispatch_v2(prompt: str, args: argparse.Namespace, codex: str | None) -> int:
+    config = Path(__file__).resolve().parents[2] / "configs" / "model-profiles.toml"
+    try:
+        profile = load_profile(config, args.profile)
+        summary = RepoAnalyzer(Path.cwd()).analyze(prompt)
+        if args.preview_intent:
+            decision = local_decision(prompt, summary) or IntentDecision(
+                "PLAN", "standard", "uncertain", tuple(summary.candidates[:12]), "medium", .35,
+                "Preview lokal belum cukup yakin; classifier ditunda sampai eksekusi.", False, True)
+        else:
+            decision = decide_intent(prompt, summary, codex, profile)
+    except (OSError, KeyError, ValueError) as exc:
+        print(f"SmartCodex v2 tidak dapat memuat konteks/profil: {exc}", file=sys.stderr)
+        return 2
+    selected = profile.tiers[decision.tier]
+    print(f"[SmartCodex v2] Intent: {decision.intent} | kompleksitas: {decision.complexity} | risiko: {decision.risk}")
+    print(f"[SmartCodex v2] Alasan: {decision.reason}")
+    print(f"[SmartCodex v2] Confidence: {decision.confidence:.0%} | tier: {decision.tier} | model: {selected.model} | effort: {selected.effort}")
+    if decision.provisional: print("[SmartCodex v2] Keputusan provisional; fallback konservatif.")
+    if args.preview_intent:
+        print("[SmartCodex v2] Preview: tidak ada file yang diubah dan Codex tidak dijalankan.")
+        return 0
+    if decision.intent == "PLAN":
+        print("[SmartCodex v2] PLAN: eksekusi dihentikan; planner Tahap 04 belum tersedia.")
+        return 3
+    if args.mode != "exec":
+        print("[SmartCodex v2] DIRECT memerlukan --mode exec.", file=sys.stderr)
+        return 2
+    if not codex:
+        print("Codex CLI tidak ditemukan di PATH.", file=sys.stderr); return 1
+    command = [codex, "exec", "--model", selected.model, "-c", f"model_reasoning_effort={selected.effort}",
+               "--sandbox", "workspace-write" if args.write else "read-only", "-"]
+    try:
+        return subprocess.run(command, input=prompt, text=True, encoding="utf-8", check=False).returncode
+    except OSError as exc:
+        print(f"Gagal menjalankan Codex: {exc}", file=sys.stderr); return 1
 
 
 def main(argv: list[str] | None = None) -> int:

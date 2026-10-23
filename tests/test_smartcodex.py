@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import smartcodex.cli as s
 from smartcodex.repo_analyzer import RepoAnalyzer
+from smartcodex.intent_gate import decide, load_profile, local_decision
 
 
 class RouterTests(unittest.TestCase):
@@ -213,6 +214,50 @@ class RepoAnalyzerTests(unittest.TestCase):
         result = RepoAnalyzer(root, max_paths=3, max_file_bytes=5, max_total_bytes=8).analyze()
         self.assertLessEqual(len(result.files), 3); self.assertLessEqual(result.total_bytes, 8)
         self.assertTrue(result.truncated)
+
+
+class IntentGateTests(unittest.TestCase):
+    def setUp(self):
+        self.summary = RepoAnalyzer(Path(__file__).parent / "fixtures" / "non_git").analyze("UI button")
+        self.profile = load_profile(Path(__file__).resolve().parents[1] / "configs" / "model-profiles.toml")
+
+    def test_typo_direct_without_classifier_and_testing_profile(self):
+        with patch("smartcodex.intent_gate.classify", side_effect=AssertionError("unexpected classifier")):
+            result = decide("Fix typo in button label", self.summary, "codex", self.profile)
+        self.assertEqual((result.intent, result.tier), ("DIRECT", "simple"))
+        self.assertEqual(self.profile.tiers[result.tier].model, "gpt-6-luna")
+        self.assertEqual(self.profile.tiers[result.tier].effort, "low")
+
+    def test_long_prompt_small_change_direct(self):
+        result = local_decision("Fix typo in button label. " + "Context. " * 200, self.summary)
+        self.assertEqual(result.intent, "DIRECT")
+
+    def test_risky_and_cross_module_tasks_plan(self):
+        for prompt in ("Simple database migration", "easy auth change", "payment update", "security fix", "feature across multiple modules"):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(local_decision(prompt, self.summary).intent, "PLAN")
+
+    def test_ambiguous_classifier_mock_and_failure_fallback(self):
+        with patch("smartcodex.intent_gate.classify", return_value=__import__("smartcodex.intent_gate", fromlist=["IntentDecision"]).IntentDecision(
+                "PLAN", "standard", "uncertain", (), "medium", .65, "unclear", True)) as classifier:
+            result = decide("Make the requested improvement", self.summary, "codex", self.profile)
+        classifier.assert_called_once()
+        self.assertEqual(result.confidence, .65)
+        with patch("smartcodex.intent_gate.classify", side_effect=RuntimeError("offline")):
+            failed = decide("Make the requested improvement", self.summary, "codex", self.profile)
+        self.assertEqual(failed.intent, "PLAN")
+        self.assertTrue(failed.provisional)
+
+    def test_v2_preview_and_plan_never_execute_codex(self):
+        with patch.object(s.shutil, "which", return_value="codex.exe"), patch.object(s.subprocess, "run") as run:
+            self.assertEqual(s.main(["Fix typo in button label", "--preview-intent"]), 0)
+            self.assertEqual(s.main(["database migration", "--v2", "--mode", "exec", "--write"]), 3)
+        self.assertFalse(any(call.args and call.args[0][0] == "codex.exe" for call in run.call_args_list))
+
+    def test_fallback_sol_is_approval_gated(self):
+        self.assertEqual(self.profile.fallback.model, "gpt-6.1-sol")
+        self.assertTrue(self.profile.fallback_approval)
+        self.assertTrue(self.profile.fallback.requires_approval)
 
 
 if __name__ == "__main__":
