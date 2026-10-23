@@ -154,10 +154,13 @@ class RepoAnalyzerTests(unittest.TestCase):
         self.assertNotEqual(by_path["tracked.py"].status, "clean")
         self.assertEqual(by_path["new.py"].status, "??")
 
-    def test_traversal_rejected_and_outside_symlink_ignored(self):
+    def test_traversal_rejected(self):
         from smartcodex.repo_analyzer import _safe_relative
         root = self.fixtures / "non_git"
         self.assertIsNone(_safe_relative(root, root.parent / "outside.txt"))
+
+    def test_outside_symlink_ignored(self):
+        root = self.fixtures / "non_git"
         link = root / "escape-test-link"
         try:
             link.symlink_to(self.fixtures / "javascript", target_is_directory=True)
@@ -168,6 +171,42 @@ class RepoAnalyzerTests(unittest.TestCase):
             self.assertFalse(any(path.startswith("escape-test-link/") for path in (f.path for f in result.files)))
         finally:
             link.unlink(missing_ok=True)
+
+    def test_temporary_env_content_is_never_read_or_returned(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            secret = "REGRESSION_SENTINEL_DO_NOT_EXPOSE"
+            (root / ".env").write_text(secret, encoding="utf-8")
+            (root / "app.py").write_text("print('safe')", encoding="utf-8")
+            with patch.object(Path, "read_text", autospec=True, wraps=Path.read_text) as read_text:
+                result = RepoAnalyzer(root).analyze()
+            self.assertNotIn(".env", [f.path for f in result.files])
+            self.assertNotIn(secret, repr(result))
+            self.assertFalse(any(call.args[0].name == ".env" for call in read_text.call_args_list))
+
+    def test_git_rename_and_copy_status_records(self):
+        import smartcodex.repo_analyzer as analyzer
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "renamed.py").write_text("x", encoding="utf-8")
+            (root / "copied.py").write_text("y", encoding="utf-8")
+            self._assert_git_rename_copy(analyzer, root)
+
+    def _assert_git_rename_copy(self, analyzer, root):
+        def git_output(path, *args):
+            if args == ("rev-parse", "--show-toplevel"): return str(root) + "\n"
+            if args == ("branch", "--show-current"): return "fixture-branch\n"
+            if args == ("ls-files", "-z"): return "renamed.py\0copied.py\0"
+            if args == ("status", "--porcelain=v1", "-z", "--untracked-files=all"):
+                return "R  renamed.py\0old.py\0C  copied.py\0source.py\0"
+            raise AssertionError(args)
+        with patch.object(analyzer, "_git", side_effect=git_output):
+            result = RepoAnalyzer(root).analyze()
+        by_path = {f.path: f for f in result.files}
+        self.assertEqual(by_path["renamed.py"].status, "R")
+        self.assertEqual(by_path["copied.py"].status, "C")
 
     def test_path_and_byte_budgets(self):
         root = self.fixtures / "budget"

@@ -1,0 +1,2 @@
+<?php
+// Minimal source fixture.
